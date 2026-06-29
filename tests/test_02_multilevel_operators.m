@@ -145,22 +145,22 @@ figure('Name', 'Piece 2: Multilevel Operators', 'Position', [50 50 1200 400]);
 
 subplot(1,4,1);
 imagesc(reshape(x_true, Ny, Nx));
-axis image; colormap gray; colorbar;
+axis image; colorbar;
 title(sprintf('x fine (%dx%d)', Nx, Ny));
 
 subplot(1,4,2);
 imagesc(reshape(x_c, Ny_c, Nx_c));
-axis image; colormap gray; colorbar;
+axis image; colorbar;
 title(sprintf('R*x coarse (%dx%d)', Nx_c, Ny_c));
 
 subplot(1,4,3);
 imagesc(reshape(s_via_fine, NTheta, NTau));
-axis image; colormap gray; colorbar;
+axis image; colorbar;
 title('Sinogram via fine A');
 
 subplot(1,4,4);
 imagesc(reshape(s_via_coarse, NTheta, NTau));
-axis image; colormap gray; colorbar;
+axis image; colorbar;
 title('Sinogram via coarse A_c');
 
 fprintf('\n=== Piece 2 PASSED ===\n');

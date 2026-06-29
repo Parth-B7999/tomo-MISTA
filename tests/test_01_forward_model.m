@@ -128,16 +128,16 @@ fprintf('L_f = %.4f   (used as step size: 1/L_f = %.6f)\n', L_f, 1/L_f);
 figure('Name','Piece 1: Forward Model','Position',[100 100 1000 350]);
 
 subplot(1,3,1);
-imagesc(WGT); axis image; colormap gray; colorbar;
+imagesc(WGT); axis image; colorbar;
 title(sprintf('Phantom (%dx%d)', Nx, Ny));
 
 subplot(1,3,2);
-imagesc(S_img); axis image; colormap gray; colorbar;
+imagesc(S_img); axis image; colorbar;
 xlabel('Detector bin \tau'); ylabel('Angle \theta');
 title(sprintf('Sinogram (%d angles, %d bins)', NTheta, NTau));
 
 subplot(1,3,3);
-imagesc(reshape(grad_at_true, Ny, Nx)); axis image; colormap gray; colorbar;
+imagesc(reshape(grad_at_true, Ny, Nx)); axis image; colorbar;
 title('grad f(x_{true})   [should look like noise]');
 
 fprintf('\n=== Piece 1 PASSED ===\n');
