@@ -1,0 +1,20 @@
+# MATLAB autosave and backups
+*.asv
+*.m~
+
+# MATLAB MEX binaries
+*.mex*
+*.mexmaci64
+*.mexw64
+*.mexa64
+
+# MATLAB figures and data (large files)
+*.fig
+*.mat
+
+# macOS
+.DS_Store
+
+# Generated output folders
+results/
+logs/
