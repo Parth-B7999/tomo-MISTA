@@ -49,17 +49,22 @@ fprintf('Level 3    : image %dx%d (sinogram stays at %dx%d)\n\n', Nx_cc, Ny_cc, 
 % build_fw_2D(Nf_x, Nf_y, Nc_x, Nc_y) returns R of size (Nc_x*Nc_y) x (Nf_x*Nf_y)
 % Standard multigrid convention: P = R' (transpose), scaled so R*P = I approx
 
-R12 = (1/4) * build_fw_2D(Nx,   Ny,   Nx_c,  Ny_c);   % Level 1->2
-P21 = build_fw_2D(Nx,   Ny,   Nx_c,  Ny_c)';           % Level 2->1  (= 4*R12')
+% Convention used throughout this project:
+%   R = build_fw_2D(...)       -- un-scaled restriction, rows sum to 1
+%   P = build_fw_2D(...)'      -- transpose of R, i.e. P = R'
+%   This gives A_c*x_H0 = A*P*R*y ≈ A*y near the solution,
+%   so v_H ≈ 0 at the optimum (no artificial scaling mismatch).
+R12 = build_fw_2D(Nx,   Ny,   Nx_c,  Ny_c);    % Level 1->2  rows sum to 1
+P21 = build_fw_2D(Nx,   Ny,   Nx_c,  Ny_c)';   % Level 2->1  = R12'
 
-R23 = (1/4) * build_fw_2D(Nx_c, Ny_c, Nx_cc, Ny_cc);   % Level 2->3
-P32 = build_fw_2D(Nx_c, Ny_c, Nx_cc, Ny_cc)';          % Level 3->2
+R23 = build_fw_2D(Nx_c, Ny_c, Nx_cc, Ny_cc);   % Level 2->3
+P32 = build_fw_2D(Nx_c, Ny_c, Nx_cc, Ny_cc)';  % Level 3->2
 
-%% CHECK 1: P = 4*R' (adjoint)
-fprintf('--- Check 1: P21 = 4*R12'' (adjoint relationship) ---\n');
-err_adj = norm(full(P21) - 4*full(R12)', 'fro');
-fprintf('||P21 - 4*R12''||_F = %.2e  ', err_adj);
-assert(err_adj < 1e-10, 'FAIL: P21 is not 4*R12^T');
+%% CHECK 1: P = R' (adjoint)
+fprintf('--- Check 1: P21 = R12'' (P is exact transpose of R) ---\n');
+err_adj = norm(full(P21) - full(R12)', 'fro');
+fprintf('||P21 - R12''||_F = %.2e  ', err_adj);
+assert(err_adj < 1e-10, 'FAIL: P21 is not R12^T');
 fprintf('PASS\n');
 
 %% CHECK 2: R12*P21 ~= I on coarse space

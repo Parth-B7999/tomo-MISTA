@@ -18,8 +18,8 @@ addpath(fullfile(repo_root, 'solvers'));
 fprintf('=== PIECE 3: FISTA Baseline Solver ===\n\n');
 
 %% 1. Problem setup (same as Pieces 1 and 2)
-Nx = 64; Ny = Nx; WSz = [Ny, Nx];
-NTheta = 30;
+Nx = 150; Ny = Nx; WSz = [Ny, Nx];
+NTheta = 90;
 NTau   = ceil(sqrt(Nx^2 + Ny^2));
 NTau   = NTau + mod(NTau - Ny, 2);
 

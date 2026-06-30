@@ -1,20 +1,35 @@
-function [x, history] = mrfista(A, A_c, R, P, s, lambda, L_f, L_fc, x0, max_iter, tol, params)
+function [x, history] = mrfista(A, A_c, R, P, s, s_c, lambda, L_f, L_fc, x0, max_iter, tol, params)
 % mrfista  2-level Multilevel FISTA (MR-FISTA) for L1-regularised tomography.
+%
+% Supports two coarse model constructions controlled by the s_c argument:
+%
+%   ONE-SIDED  (pass s_c = s):
+%     A_c = A * P     maps coarse image -> FINE sinogram
+%     Same measurement vector s used at both levels.
+%     Simple to build. But the coarse problem becomes overdetermined
+%     when n_c < m (more measurements than coarse unknowns), which can
+%     make the v_H term very large and the coarse direction unreliable.
+%
+%   TWO-SIDED  (pass s_c = Rs * s, A_c = Rs * A * P):
+%     Both the image AND sinogram are downsampled together.
+%     Preserves the underdetermined structure of the fine problem.
+%     Gives a much smaller v_H (verified analytically: v_H -> A_c'*noise
+%     near the true solution, same magnitude as the fine gradient).
+%     Use restrict_matrix.m to build A_c and build_fw_2D to build Rs.
 %
 % PROBLEM SOLVED (same as fista.m):
 %   min_{x}  F(x) = f(x) + g(x)
-%           f(x) = 0.5 * ||A*x - s||^2      (smooth data fidelity, fine level)
+%           f(x) = 0.5 * ||A*x - s||^2      (smooth data fidelity, FINE level)
 %           g(x) = lambda * ||x||_1          (L1 regulariser)
+%
+%   The fine objective always uses (A, s).  The coarse objective uses (A_c, s_c).
+%   The line search always evaluates the FINE objective.
 %
 % IDEA (Parpas 2017, MISTA):
 %   Most of FISTA's iterations are standard proximal gradient steps.
 %   When the gradient is large on the coarse grid (i.e. the coarse model can
 %   give useful information), we replace one fine-level step with a cheaper
 %   coarse-level solve that provides a better search direction.
-%
-%   The coarse operator is A_c = A * P  (fine operator composed with prolongation).
-%   A_c maps a COARSE image to the FINE sinogram, so the measurement s stays
-%   at fine resolution throughout.  Only the image is downsampled.
 %
 % ALGORITHM (one outer iteration):
 %
@@ -203,8 +218,10 @@ function [x, history] = mrfista(A, A_c, R, P, s, lambda, L_f, L_fc, x0, max_iter
 
             % -- Compute coherence correction v_H --
             % Gradient of smooth coarse objective at x_H0 (without v_H):
-            %   A_c'*(A_c*x_H0 - s) + grad_g_mu_c(x_H0)
-            residual_H0      = A_c * x_H0 - s;
+            %   A_c'*(A_c*x_H0 - s_c) + grad_g_mu_c(x_H0)
+            % One-sided:  s_c = s   (fine sinogram, same at all levels)
+            % Two-sided:  s_c = Rs*s (restricted sinogram, matches A_c = Rs*A*P)
+            residual_H0      = A_c * x_H0 - s_c;
             grad_f_c_H0      = A_c' * residual_H0;
             grad_g_mu_c_H0   = lambda * x_H0 ./ sqrt(mu^2 + x_H0.^2);
             grad_F_mu_c_H0   = grad_f_c_H0 + grad_g_mu_c_H0;
@@ -216,11 +233,11 @@ function [x, history] = mrfista(A, A_c, R, P, s, lambda, L_f, L_fc, x0, max_iter
             v_H = grad_restricted_scaled - grad_F_mu_c_H0;
 
             % -- Solve corrected coarse problem (NH proximal gradient steps) --
-            % Objective: 0.5*||A_c*x_H - s||^2 + <v_H, x_H> + lambda*||x_H||_1
-            % Smooth gradient: A_c'*(A_c*x_H - s) + v_H
+            % Objective: 0.5*||A_c*x_H - s_c||^2 + <v_H, x_H> + lambda*||x_H||_1
+            % Smooth gradient: A_c'*(A_c*x_H - s_c) + v_H
             x_H = x_H0;
             for j = 1:NH
-                grad_c = A_c' * (A_c * x_H - s) + v_H;
+                grad_c = A_c' * (A_c * x_H - s_c) + v_H;
                 x_H    = soft_thresh(x_H - step_fc * grad_c, step_fc * lambda);
             end
             x_H_star = x_H;
@@ -288,13 +305,28 @@ function [x, history] = mrfista(A, A_c, R, P, s, lambda, L_f, L_fc, x0, max_iter
         end
 
         % ----------------------------------------------------------------
-        % STEP 6: Nesterov sequence update
+        % STEP 6: Nesterov sequence update (with restart after coarse steps)
         % ----------------------------------------------------------------
+        % Standard Nesterov update gives O(1/k^2) convergence for gradient steps.
+        %
+        % After an accepted coarse step we RESTART the Nesterov sequence
+        % (set t_k = 1, x_prev = x_next).  Without restart, momentum can
+        % accumulate bad directions from consecutive coarse corrections and
+        % cause divergence.  Restarting is a standard safeguard (O'Donoghue &
+        % Candes 2015) and gives monotone descent when combined with the
+        % Armijo line search.
         t_next = 0.5 * (1 + sqrt(1 + 4 * t_k^2));
-        x_prev = x_k;     % shift: previous becomes the one before
-        x_k    = x_next;  % current becomes the new iterate
+        x_prev = x_k;
+        x_k    = x_next;
         t_prev = t_k;
         t_k    = t_next;
+
+        % Restart: reset momentum after every accepted coarse step.
+        if strcmp(history.step_type{k}, 'coarse')
+            t_k    = 1;
+            t_prev = 1;
+            x_prev = x_k;
+        end
 
         % ----------------------------------------------------------------
         % Record diagnostics and check stopping criterion
